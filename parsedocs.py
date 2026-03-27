@@ -46,7 +46,8 @@ class file_parse_engine:
         filtered_words = [word for word in word_tokens 
                           if word.lower() not in self.stop_words
                           and word not in self.punctuations
-                          and word.isalnum()]
+                          and word.isalpha()
+                          and len(word) > 2]
 
         return filtered_words
 
@@ -144,6 +145,17 @@ class file_detail:
         self.token_info = dict(self.word_token_summary)
         #load the hash
         self.file_id = self.file_parse_engine.get_hash_from_text(source_text=self.text)
+
+    # remove additional stop words
+    def remove_additional_stop_words(self, new_stop_words: set):
+        # remove additional stopwords
+        print(f"Before Prune: {len(self.token_info)}")
+        if self.token_info:
+            self.token_info = {
+                word: count for word, count in self.token_info.items() 
+                if word not in new_stop_words
+            }
+        print(f"After Prune: {len(self.token_info)}")
 
     def encode_for_json(self):
         return {

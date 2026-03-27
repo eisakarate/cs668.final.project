@@ -1,3 +1,20 @@
+import json
+# used to capture metrics
+class co_hits_metrics:
+    def __init__(self, query, iteration:int, num_docs:int, num_keywords:int):
+        self.query = query
+        self.iteration = iteration
+        self.num_docs = num_docs
+        self.num_keywords = num_keywords
+    
+    def encode_for_json(self):
+        return {
+            "initial_query": ",".join(self.query),
+            "iteration": self.iteration,
+            "num_docs": self.num_docs,
+            "num_keywords": self.num_keywords,
+        }
+
 class matrix_info:
     def __init__(self, w, num_docs: int, num_keywords:int, file_id_list, file_id_index_map, keyword_list, keyword_index_map ):
         self.w_matrix = w
@@ -54,7 +71,7 @@ def convert_json_to_adjacency_matrix(doc_keyword_map) -> matrix_info:
 
     return matrix_info(w=W, num_docs= num_docs, num_keywords= num_keywords, file_id_list=file_ids, file_id_index_map=document_to_idx_map, keyword_list= keywords_list_sorted, keyword_index_map= keyword_to_idx_map)
 
-def calculate_cohits(doc_keyword_map, q_keywords: [str], lambda_scale = 0.8, cnt_iteration: int = 10):
+def calculate_cohits(doc_keyword_map, q_keywords, lambda_scale = 0.8, cnt_iteration: int = 10):
     #-- generate the initial adjacency matrix (x_0, y_0)
     init_matrix_info = convert_json_to_adjacency_matrix(doc_keyword_map=doc_keyword_map)
 
@@ -85,8 +102,16 @@ def calculate_cohits(doc_keyword_map, q_keywords: [str], lambda_scale = 0.8, cnt
     u_scores = list(x_init)
     v_scores = list(y_init)
 
+    # metrics
+    query_metrics = []
+    query_metrics.append(co_hits_metrics(iteration=0, query=q_keywords, num_docs=0, num_keywords=sum(1 for x in y_init if x > 0)) )
+
+    # Initialize keywords trackers that have already been "seen"
+    seen_keyword_indices = {j for j, score in enumerate(v_scores) if score > 0}
+    keywordsByIteration = {}
+
     # iterate
-    for _ in range(cnt_iteration):
+    for iteration_index in range(cnt_iteration):
         # update document (x_i) scores: x = (1 - lam) * x_init + lam * (Wv * v), equation (3)
         updated_u_scores = []
         for i in range(init_matrix_info.num_docs):
@@ -101,12 +126,42 @@ def calculate_cohits(doc_keyword_map, q_keywords: [str], lambda_scale = 0.8, cnt
             document_sum = sum(W_u[i][j] * updated_u_scores[i] for i in range(init_matrix_info.num_docs))
             updated_v_scores.append((1 - lambda_scale) * y_init[j] + lambda_scale * document_sum)
 
+        # check the difference
+        # get the keywords "active" in this iteration (score > 0)
+        current_active_keyword_indices = {j for j, score in enumerate(updated_v_scores) if score > 0}
+        
+        # identify the new keyword indices
+        new_keyword_indices = current_active_keyword_indices - seen_keyword_indices
+        
+        # Map new new keywords indices to words 
+        new_keywords = [init_matrix_info.keyword_list[idx] for idx in new_keyword_indices]
+        #print(f'Iteration {iteration_index + 1} - new_keywords: {new_keywords}')
+        keywordsByIteration[iteration_index] = new_keywords
+        # add to the tracker
+        seen_keyword_indices.update(new_keyword_indices)
+
         #-- store the the new scores
         u_scores = updated_u_scores
         v_scores = updated_v_scores
+
+        #-- update the metrics
+        query_metrics.append(
+            co_hits_metrics(
+                iteration=iteration_index, 
+                query=q_keywords,
+                num_docs=sum(1 for x in u_scores if x > 0), 
+                num_keywords=sum(1 for x in v_scores if x > 0)
+            )
+        )
     
     print(f"Unique IDs: {len(set(init_matrix_info.file_id_list))}")
     print(f'u_scores has: {len(u_scores)} entries')
+
+    #-- output as JSON
+    jData: str = json.dumps(keywordsByIteration, indent=4)
+    file_suffix = f"{'_'.join(q_keywords)}".replace(".","_")
+    with open(f"new_keywords_{file_suffix}.json", "w") as fw:
+        fw.write(jData)
     
     #-- return, associate the score-index with original content
-    return dict(zip(init_matrix_info.file_id_list, u_scores)), dict(zip(init_matrix_info.keyword_list, v_scores))
+    return dict(zip(init_matrix_info.file_id_list, u_scores)), dict(zip(init_matrix_info.keyword_list, v_scores)), query_metrics

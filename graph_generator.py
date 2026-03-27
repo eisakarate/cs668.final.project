@@ -8,6 +8,7 @@ from graph import Graph
 import graph
 
 import random
+import os
 
 def has_edge(to_node_index: int, num_nodes: int, randomness_tuner: int = 1) -> bool:
     rand: int = (random.randint(0, num_nodes*randomness_tuner) % num_nodes)
@@ -51,24 +52,45 @@ def generate_graph_as_png(g: Graph, graph_file_name: str = "graph"):
     # register edges
     for curNode in g.nodes:
         for e in curNode.get_edge_list():
-            nxG.add_edge(e.from_node, e.to_node, weight=e.weight)
+            nxG.add_edge(e.from_node, e.to_node, weight=e.weight,
+                         label_text=f"{e.label}({e.weight})")
+
+    # draw node labels
+    node_labels = {n.index: (n.label if n.label else n.index) for n in g.nodes}
 
     #Setup Layout (Important for consistent edge label placement)
     pos = nx.spring_layout(nxG) 
 
+    #draw the nodes and labels 
+    nx.draw_networkx_nodes(nxG, pos, node_color='lightblue')
+    nx.draw_networkx_labels(nxG, pos, labels=node_labels)
+
     # draw it
-    nx.draw(nxG, pos, with_labels=True, node_color='lightblue', 
-            arrowstyle='-|>', arrowsize=20,
-            connectionstyle='arc3,rad=0.2')
+    if g.undirected:
+        nx.draw_networkx_edges(nxG, pos)
+    else:
+        nx.draw(nxG, pos, 
+                # labels=node_labels,
+                # with_labels=True, 
+                # node_color='lightblue', 
+                # node_size=500,
+                # font_size=10,
+                arrowstyle='-|>', 
+                arrowsize=20,
+                connectionstyle='arc3,rad=0.2')
     
     # Draw the edge weights specifically
      # Use label_pos=0.3 to slide the text along the curve 
     #  so they don't stack on top of each other in the center
-    edge_labels = nx.get_edge_attributes(nxG, 'weight')
-    nx.draw_networkx_edge_labels(nxG, pos, edge_labels=edge_labels,
-                                 label_pos=0.3, font_size=9)
+    edge_labels = {edge: v for edge, v in nx.get_edge_attributes(nxG, 'label_text').items()}
+    nx.draw_networkx_edge_labels(nxG, pos, 
+                                 edge_labels=edge_labels,
+                                 label_pos=0.3, 
+                                 font_size=9)
 
     #output
     import matplotlib.pyplot as plt
-    plt.savefig(f"{graph_file_name}.png", format="PNG", dpi=300, bbox_inches = 'tight')
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+
+    plt.savefig(os.path.join(script_dir,f"{graph_file_name}.png"), format="PNG", dpi=300, bbox_inches = 'tight')
     plt.show()

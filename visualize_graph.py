@@ -8,9 +8,9 @@ def To_bipartite_graph(doc_keyword_map):
     output = []
     #-- generate a map
     for detail in doc_keyword_map:
-        for keyword, occurrence in detail.word_token_summary.items():
+        for keyword, occurrence in detail["token_info"].items():
             output.append({
-                "file_name": detail.file_name,
+                "file_name": detail["file_name"],
                 "keyword": keyword,
                 "weight": occurrence
             })

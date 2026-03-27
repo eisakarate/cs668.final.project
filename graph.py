@@ -3,10 +3,11 @@ from typing import Union
 # edge of a graph with from and to, as well as weight
 #-----------------------------
 class Edge:
-    def __init__ (self, from_node: int, to_node: int, weight: float):
+    def __init__ (self, from_node: int, to_node: int, weight: float, label: str = "'"):
         self.from_node: int = from_node # set origin
         self.to_node: int = to_node # store designation
         self.weight: float = weight     # store weight
+        self.label: str = label # store label
 
     def __repr__(self):
         return f"(from_node: {self.from_node}, to_node: {self.to_node}, weight: {self.weight})"
@@ -32,8 +33,8 @@ class Node:
     
     # add an edge or updates it
     # this is for a undirected graph (as the there is only one edge permitted per neighbor)
-    def add_edge(self, neighbor: int, weight: float):
-        self.edges[neighbor] = Edge(from_node=self.index, to_node=neighbor, weight=weight)
+    def add_edge(self, neighbor: int, weight: float, edge_label: str = ""):
+        self.edges[neighbor] = Edge(from_node=self.index, to_node=neighbor, weight=weight, label=edge_label)
 
     # removes an edge, if it exists
     def remove_edge(self, neighbor:int):
@@ -104,7 +105,7 @@ class Graph:
                 all_edges.append(edge)
         return all_edges
 
-    def insert_edge(self, from_node: int, to_node: int, weight: float):
+    def insert_edge(self, from_node: int, to_node: int, weight: float, edge_label: str = ""):
         #prevent "index not found error"
         if from_node < 0 or from_node >= self.num_nodes:
             raise IndexError
@@ -112,12 +113,12 @@ class Graph:
             raise IndexError
         
         #add a the edge
-        self.nodes[from_node].add_edge(neighbor=to_node, weight=weight)
+        self.nodes[from_node].add_edge(neighbor=to_node, weight=weight, edge_label=edge_label)
 
         #add a "return" (i.e., corresponding return) edge if this is NOT a directed graph
         # important: weight is set to be the same
         if self.undirected:
-            self.nodes[to_node].add_edge(neighbor=from_node, weight=weight)
+            self.nodes[to_node].add_edge(neighbor=from_node, weight=weight, edge_label=edge_label)
 
     def remove_edge(self, from_node: int, to_node: int, weight: float):
         #prevent "index not found error"
@@ -165,6 +166,19 @@ class Graph:
         
         #return
         return neighbors
+
+#-- serialization
+def graph_to_dict(obj):
+    # handle Graph, Node, and Edge objects (as a dictionary, 'cause it is)
+    if hasattr(obj, '__dict__'):
+        return obj.__dict__
+    
+    # handle sets
+    if isinstance(obj, set):
+        return list(obj)
+    
+    #not supported
+    raise TypeError(f"Object of type {obj.__class__.__name__} is not JSON serializable")
 
 ## g -> graph
 ## ind -> index of node of interest
