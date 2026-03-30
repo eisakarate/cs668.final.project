@@ -36,6 +36,8 @@ class file_parse_engine:
         # define stop words (english)
         self.stop_words = set(stopwords.words('english')) | addtional_stopwords
         self.punctuations = set(string.punctuation)
+        #add lemmatization
+        self.lemmatizer = nltk.stem.WordNetLemmatizer()
 
     # remove stop-words
     def remove_stopwords(self, text:str):
@@ -43,7 +45,7 @@ class file_parse_engine:
         word_tokens:list = word_tokenize(text.lower())
 
         # Filter out stop words using a list comprehension
-        filtered_words = [word for word in word_tokens 
+        filtered_words = [self.lemmatizer.lemmatize(word) for word in word_tokens 
                           if word.lower() not in self.stop_words
                           and word not in self.punctuations
                           and word.isalpha()
@@ -110,13 +112,14 @@ class file_parse_engine:
         return hash_str
 
 class file_detail:
-    def __init__(self, file_path:str, f_engine: file_parse_engine):
+    def __init__(self, file_path:str, f_engine: file_parse_engine, f_alt_id: str=""):
         self.file_path = file_path
         self.file_id = ""
         self.text = ""
         self.word_token_summary = None
         self.token_info = None
         self.file_parse_engine = f_engine
+        self.alternate_file_id = f_alt_id
 
     @property
     def file_name(self):
@@ -163,7 +166,9 @@ class file_detail:
             "file_path": self.file_path,
             "file_ext": self.file_extension,
             "file_id":  self.file_id,  ## hash
-            "token_info": self.token_info # convert to dictionary
+            "token_info": self.token_info, # convert to dictionary,
+            #"file_id_alt": self.f_alt_id,
+            "file_text": self.text
         }
 
 if __name__ == "__main__":

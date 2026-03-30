@@ -53,7 +53,7 @@ def generate_graph_as_png(g: Graph, graph_file_name: str = "graph"):
     for curNode in g.nodes:
         for e in curNode.get_edge_list():
             nxG.add_edge(e.from_node, e.to_node, weight=e.weight,
-                         label_text=f"{e.label}({e.weight})")
+                         label_text=f"({e.weight})")
 
     # draw node labels
     node_labels = {n.index: (n.label if n.label else n.index) for n in g.nodes}

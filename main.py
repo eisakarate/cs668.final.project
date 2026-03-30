@@ -2,7 +2,6 @@ import json
 from collections import Counter
 # use the 20-newsgroups dataset (pip install scikit-learn)
 from sklearn.datasets import fetch_20newsgroups
-from sklearn.feature_extraction.text import TfidfVectorizer
 
 from co_hits import calculate_cohits
 from parsedocs import file_detail, file_parse_engine
@@ -14,17 +13,29 @@ from os import path
 from pathlib import Path
 startup_dir = Path(__file__).parent
 
+#lambda
+custom_lambda = 0.2
+apply_additional_cleanup: bool = False
+
 #load the dataset
 #categories = ['sci.space', 'comp.graphics', 'rec.motorcycles']
+#eval_index = 1
 categories = ['comp.sys.ibm.pc.hardware', 'sci.electronics', 'misc.forsale', 'sci.med']
+eval_index = 2
 
 #query = ["nasa", "space", "engine"]
+#query_index = 1
 #query = ["data", "space", "system"]
+#query_index = 2
 #query = ["materials", "sales", "engine"]
+#query_index = 3
 
-#query = ["financial", "electronic", "radiation", "matter"]
-query = ["financial", "electronic", "radiation", "matter", "circuitry"]
+query = ["financial", "electronic", "radiation", "matter"]
+query_index = 1
 #query = ["financial", "electronic", "radiation", "matter", "circuitry"]
+#query_index = 2
+#query = ["financial", "electronic", "radiation", "matter", "circuitry", "dominance"]
+#query_index = 3
 
 newsgroups = fetch_20newsgroups(subset='train', categories=categories, remove=('headers', 'footers', 'quotes'))
 
@@ -48,25 +59,27 @@ for i in range(len(newsgroups.data)):
     if i > 5000:
         break
 
-#-- final clean up
-word_occurrence_limit = 0.2 ## upper limit of word frequency
-global_word_freq = Counter()
-for cur_file in file_list:
-    file_words = set(cur_file.token_info.keys())
-    global_word_freq.update(file_words)
+if apply_additional_cleanup:
+    #-- final clean up
+    word_occurrence_limit = 0.2 ## upper limit of word frequency
+    global_word_freq = Counter()
+    for cur_file in file_list:
+        file_words = set(cur_file.token_info.keys())
+        global_word_freq.update(file_words)
 
-total_files = len(file_list)
-min_count = 25 # a word must be in at least 2 files
-max_count = total_files * 0.1  # ignore words in > 30% of files
-#generate secondary stop words
-secondary_stop_words = {
-    word for word, count in global_word_freq.items() 
-    if count < min_count or count > max_count
-}
-print(f"secondary_stop_words count: {len(secondary_stop_words)}")
-#-- clean up secondary stop words from files
-for cur_file in file_list:
-    cur_file.remove_additional_stop_words(new_stop_words=secondary_stop_words)
+    total_files = len(file_list)
+    min_count = 25 # a word must be in at least 2 files
+    max_count = total_files * 0.1  # ignore words in > 30% of files
+    #generate secondary stop words
+    secondary_stop_words = {
+        word for word, count in global_word_freq.items() 
+        if count < min_count or count > max_count
+    }
+        
+    print(f"secondary_stop_words count: {len(secondary_stop_words)}")
+    #-- clean up secondary stop words from files
+    for cur_file in file_list:
+        cur_file.remove_additional_stop_words(new_stop_words=secondary_stop_words)
 
 print(f"Processing; {len(file_list)} files")
 
@@ -75,10 +88,10 @@ print(f"Processing; {len(file_list)} files")
 
 # Get the Co-HITS
 print('getting co-hits')
-doc_results, key_expansions, query_metrics = calculate_cohits(file_list, query, 0.2)
+doc_results, key_expansions, query_metrics = calculate_cohits(doc_keyword_map=file_list, q_keywords=query, lambda_scale=custom_lambda)
 print(f'Got co-hits: {len(doc_results)}')
 
-file_suffix = f"{''.join(categories).replace(".","")}_{''.join(query)}".replace(".","_")
+file_suffix =  f"{eval_index}_{query_index}_{("AggressiveClean" if apply_additional_cleanup else "NoCleanup")}"#{''.join(categories).replace(".","")}_{query_index}"#{''.join(query)}".replace(".","_")
 
 #output JSON of the files
 jData: str = json.dumps(file_list, default=lambda x: x.encode_for_json(), indent=4)
@@ -86,7 +99,7 @@ with open(path.join(startup_dir, f"test_json_{file_suffix}.json"), "w") as fw:
     fw.write(jData)
 #output json of the query metrics
 jData: str = json.dumps(query_metrics, default=lambda x: x.encode_for_json(), indent=4)
-with open(path.join(startup_dir, f"query_metrics_{file_suffix}.json"), "w") as fw:
+with open(path.join(startup_dir, f"qryStat_{file_suffix}.json"), "w") as fw:
     fw.write(jData)
 
 #map file-id to filename
@@ -101,11 +114,11 @@ top_10_keywords = sorted_keyword_results[:10]
 
 print("--- Top 10 documents ---")
 for doc_name, score in top_10_docs:
-    print(f"{score:.4f}\t{doc_name}")
+    print(f"{score:.4f} & {doc_name}")
 
 print("--- Top 10 keywords ---")
 for key_word, score in top_10_keywords:
-    print(f"{score:.4f}\t{key_word}")
+    print(f"{score:.4f} & {key_word}")
 
 #-- perform one-mode projection of top-10
 projection = one_mode_projection(doc_keyword_map = file_list, 
