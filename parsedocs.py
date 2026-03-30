@@ -118,7 +118,7 @@ class file_detail:
         self.text = ""
         self.word_token_summary = None
         self.token_info = None
-        self.file_parse_engine = f_engine
+        self.fp_engine = f_engine
         self.alternate_file_id = f_alt_id
 
     @property
@@ -133,21 +133,21 @@ class file_detail:
     def load_text(self):
         match self.file_extension:
             case ".doc"| ".docx":
-                self.text = self.file_parse_engine.get_text_from_ms_word(file_path=self.file_path)
+                self.text = self.fp_engine.get_text_from_ms_word(file_path=self.file_path)
             case ".md":
-                self.text = self.file_parse_engine.get_text_from_markdown(file_path=self.file_path)
+                self.text = self.fp_engine.get_text_from_markdown(file_path=self.file_path)
             case ".txt":
-                self.text = self.file_parse_engine.get_text_from_textfile(file_path=self.file_path)
+                self.text = self.fp_engine.get_text_from_textfile(file_path=self.file_path)
             case _:
                 print(f"file extension ({self.file_extension}) is not supported.")
                 raise NotImplementedError(f"file extension ({self.file_extension}) is not supported.")
 
     # parse text
     def tokenize_text(self):
-        self.word_token_summary = self.file_parse_engine.generate_graph_source(text=self.text)
+        self.word_token_summary = self.fp_engine.generate_graph_source(text=self.text)
         self.token_info = dict(self.word_token_summary)
         #load the hash
-        self.file_id = self.file_parse_engine.get_hash_from_text(source_text=self.text)
+        self.file_id = self.fp_engine.get_hash_from_text(source_text=self.text)
 
     # remove additional stop words
     def remove_additional_stop_words(self, new_stop_words: set):

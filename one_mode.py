@@ -1,6 +1,8 @@
 import visualize_graph
 from collections import defaultdict
 from itertools import combinations
+from parsedocs import file_detail, file_parse_engine
+from co_hits import calculate_cohits
 
 from graph import Graph, Node, Edge
 
@@ -64,7 +66,16 @@ def one_mode_projection(doc_keyword_map, docs_of_interest, keywords_of_interest)
         from_file_node_index = file_names.index(from_file)
         to_file_node_index = file_names.index(to_file)
 
-        doc_graph.insert_edge(from_node=from_file_node_index, to_node=to_file_node_index, weight=weight, edge_label=keyword)
+        #check if an edge exists
+        if doc_graph.is_edge(from_node=from_file_node_index, to_node=to_file_node_index):
+            #-- existing, add to the total weight
+            cur_node = doc_graph.get_edge(from_node=from_file_node_index, to_node=to_file_node_index)
+            cur_node.weight = cur_node.weight + weight
+            cur_node = doc_graph.get_edge(from_node=to_file_node_index, to_node=from_file_node_index)
+            cur_node.weight = cur_node.weight + weight
+        else:
+            #-- new add the edge
+            doc_graph.insert_edge(from_node=from_file_node_index, to_node=to_file_node_index, weight=weight, edge_label=keyword)
 
     #-- label the edges
     for cur_f in file_names:
@@ -72,3 +83,31 @@ def one_mode_projection(doc_keyword_map, docs_of_interest, keywords_of_interest)
         doc_graph.nodes[f_index].label = cur_f
 
     return doc_graph
+
+if __name__ == "__main__":
+    
+    fP_engine = file_parse_engine()
+    #mockup a path
+    d = [
+        file_detail(file_path="test_files/doc1.txt", f_engine=fP_engine),
+        file_detail(file_path="test_files/doc2.txt", f_engine=fP_engine),
+        file_detail(file_path="test_files/doc3.txt", f_engine=fP_engine)
+    ]
+
+    for cur_d in d:
+        cur_d.load_text()
+        cur_d.tokenize_text()
+
+    doc_results, key_expansions, query_metrics = calculate_cohits(doc_keyword_map=d, q_keywords=["v_1", "v_2"], lambda_scale=0.8)
+    
+    #all the docs and keywords
+    docs_of_interest = ["doc1.txt", "doc2.txt", "doc3.txt"]  # List of file names
+    keywords_of_interest = ["test", "eye"]  # List of keywords to consider
+
+    #calculate
+    doc_graph = one_mode_projection(doc_keyword_map = d, docs_of_interest = docs_of_interest, keywords_of_interest = keywords_of_interest)
+    print(doc_graph.num_nodes)
+    #-- print
+    for cur_n in doc_graph.nodes: 
+        for cur_e in cur_n.get_edge_list():
+            print(f"({doc_graph.nodes[cur_e.from_node].label}, {doc_graph.nodes[cur_e.to_node].label}) - Weight: {cur_e.weight}")
